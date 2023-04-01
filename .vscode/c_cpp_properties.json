@@ -1,0 +1,19 @@
+{
+    "configurations": [
+        {
+            "name": "NDS",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/opt/devkitpro/libnds/include/**",
+                "/opt/devkitpro/libnds/include/nds/**",
+                "/opt/devkitpro/portlibs/nds/include/**"
+            ],
+            "defines": [],
+            "compilerPath": "/opt/devkitpro/devkitARM/bin/arm-none-eabi-gcc",
+            "cStandard": "gnu17",
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "linux-gcc-arm"
+        },
+    ],
+    "version": 4
+}
