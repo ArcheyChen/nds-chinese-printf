@@ -1,5 +1,7 @@
 {
     "files.associations": {
-        "*.bak": "cpp"
+        "*.bak": "cpp",
+        "cstdio": "cpp",
+        "cstdarg": "cpp"
     }
 }
