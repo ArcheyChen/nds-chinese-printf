@@ -8,19 +8,20 @@
 #include <nds/arm9/background.h>
 #include "my_font.h"
 typedef enum{
-	TOP = true,
-	BUTTON = false
+	TOP = 1,
+	BUTTON = 0
 }SCREEN_CHOOSE;
-
-extern u16 (*vramTop)[SCREEN_WIDTH];
-extern u16 (*vramButton)[SCREEN_WIDTH];
 
 int halGetScreenWidth();
 
 int halGetScreenHeight();
 
-void halDrawPixel(u16 (*vram)[SCREEN_WIDTH] ,int x, int y, u16 color);
+void halDrawPixel(SCREEN_CHOOSE isTop ,int x, int y, u16 color);
 
 const char *halGetFontDataPtr();
-void halClearPixel(u16 (*vram)[SCREEN_WIDTH]);
+void halClearPixel(SCREEN_CHOOSE isTop);
 void vramInit();
+void syncToScreen(SCREEN_CHOOSE isTop);
+void syncEnable();
+void syncDisable();
+void syncToScreen(SCREEN_CHOOSE isTop);

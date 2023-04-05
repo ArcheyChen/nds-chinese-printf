@@ -1,4 +1,5 @@
 #include "printf_utf8.h"
+#include <string>
 
 Cord cordTop,cordButton;
 FB_FONT fbFontCJK16;
@@ -33,7 +34,7 @@ void fbInit() {
   fbCurrentFont = pFont;
 }
 
-static int fbDrawUnicodeRune(SCREEN_CHOOSE screen_choose ,u32 rune,u16 color) {
+static int fbDrawUtf16(SCREEN_CHOOSE screen_choose ,u16 char_utf16,u16 color) {
   if (!fbCurrentFont) {
     return 0;
   }
@@ -45,19 +46,26 @@ static int fbDrawUnicodeRune(SCREEN_CHOOSE screen_choose ,u32 rune,u16 color) {
   int screenW = halGetScreenWidth();
   int screenH = halGetScreenHeight();
   auto &currentCord = screen_choose == TOP ? cordTop:cordButton;
-  auto vram = screen_choose == TOP ? vramTop : vramButton;
-  rune = (u16)(rune);
-  if (rune == '\n') {
+
+  if (char_utf16 == '\n') {
     currentCord.y += fontH + 1;
     currentCord.x = 0;
     return 0;
   }
-  u8 pgOffset = fbCurrentFont->pIndex[rune >> 8];
+  if(char_utf16 == '\t'){
+    currentCord.x += fbCurrentFont->charWidth * 2 ;
+    if (currentCord.x >= screenW) {
+      currentCord.y += fontH + 1;
+      currentCord.x = 0;
+    }
+    return 0;
+  }
+  u8 pgOffset = fbCurrentFont->pIndex[char_utf16 >> 8];
   if (pgOffset == 0xFF) {
     return 0;
   }
   u8 *ptr = fbCurrentFont->pCharData + fontPageSize * pgOffset +
-            fontCharSize * (rune & 0xff);
+            fontCharSize * (char_utf16 & 0xff);
   u8 width = *ptr;
   ptr++;
 
@@ -72,7 +80,7 @@ static int fbDrawUnicodeRune(SCREEN_CHOOSE screen_choose ,u32 rune,u16 color) {
     for (u8 x = 0; x < width; x++) {
       u8 pix = ptr[y * 2 + x / 8] & (1 << (x % 8));
       if (pix) {
-        halDrawPixel(vram , currentCord.x + x, currentCord.y + y, color);
+        halDrawPixel(screen_choose , currentCord.x + x, currentCord.y + y, color);
       }
     }
   }
@@ -83,61 +91,46 @@ static int fbDrawUnicodeRune(SCREEN_CHOOSE screen_choose ,u32 rune,u16 color) {
   }
   return width;
 }
-
-void fbDrawUtf8String(SCREEN_CHOOSE screen_choose,const char *utf8Str, u16 color) {
-  u8 *p = (u8 *)utf8Str;
-  u16 rune = 0;
-  while (*p) {
-    rune = 0;
-    u8 byte1 = *p;
-    p++;
-    if ((byte1 & 0x80) == 0) {
-      rune = byte1;
-    } else {
-      u8 byte2 = *p;
-      p++;
-      if (byte2 == 0) {
-        break;
-      }
-      if ((byte1 & 0xE0) == 0xC0) {
-        rune = ((byte1 & 0x1F) << 6) | (byte2 & 0x3F);
-      } else {
-        u8 byte3 = *p;
-        p++;
-        if (byte3 == 0) {
-          break;
-        }
-        if ((byte1 & 0xf0) == 0xE0) {
-          rune =
-              ((byte1 & 0x0F) << 12) | ((byte2 & 0x3F) << 6) | (byte3 & 0x3F);
-        } else {
-          break;
-        }
-      }
-    }
-    fbDrawUnicodeRune(screen_choose ,rune,color);
-  }
+void utf8to16(SCREEN_CHOOSE screen_choose,const char * text,u16 color){
+  int utf8_len = strlen(text);
+	for(uint i = 0; i < utf8_len;i){
+		u16 char_utf16;
+		if(!(text[i] & 0x80)){
+			char_utf16 = text[i++];
+		}else if((text[i] & 0xE0) == 0xC0){
+			char_utf16  = (text[i++] & 0x1F) << 6;
+			char_utf16 |=  text[i++] & 0x3F;
+		}else if((text[i] & 0xF0) == 0xE0){
+			char_utf16  = (text[i++] & 0x0F) << 12;
+			char_utf16 |= (text[i++] & 0x3F) << 6;
+			char_utf16 |=  text[i++] & 0x3F;
+		}else{
+			i++; // out of range or something (This only does up to U+FFFF since it goes to a U16 anyways)
+		}
+    fbDrawUtf16(screen_choose ,char_utf16,color);
+	}
+  
+  syncToScreen(screen_choose);
 }
 char printf_str_buffer[1024];//一个字最多3B，1K应该不会爆了吧
 void printf_zh(SCREEN_CHOOSE screen_choose,const char *format, ...)
 {
     va_list va;
     va_start(va, format);
-    vsprintf(printf_str_buffer, format, va);
+    vsniprintf(printf_str_buffer,1024, format, va);
     va_end(va);
-    fbDrawUtf8String(screen_choose, printf_str_buffer,ARGB16(1,31,31,31));
+    utf8to16(screen_choose, printf_str_buffer,ARGB16(1,31,31,31));
 }
 void printf_zh_color(SCREEN_CHOOSE screen_choose, u16 color,const char *format, ...)
 {
     va_list va;
     va_start(va, format);
-    vsprintf(printf_str_buffer, format, va);
+    vsniprintf(printf_str_buffer,1024, format, va);
     va_end(va);
-    fbDrawUtf8String(screen_choose, printf_str_buffer,color);
+    utf8to16(screen_choose, printf_str_buffer,color);
 }
 void clearConsole(SCREEN_CHOOSE screen_choose){
-  auto vram = screen_choose == TOP ? vramTop : vramButton;
-  halClearPixel(vram);
+  halClearPixel(screen_choose);
   setPos(screen_choose,0,0);  
 }
 //******************************************************************************
